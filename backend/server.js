@@ -13,24 +13,21 @@ app.use(cors());
 app.use(express.json());
 
 /*
-TESTE DE SERVIDOR
+TESTE
 */
 app.get("/", async (req, res) => {
-  const result = await pool.query("SELECT NOW()");
-  res.json(result.rows);
+  res.send("API OK");
 });
 
 /*
-REGISTER USER
+REGISTER
 */
 app.post("/auth/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // criptografar senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // inserir no banco
     const newUser = await pool.query(
       "INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING id,name,email",
       [name, email, hashedPassword]
@@ -39,13 +36,102 @@ app.post("/auth/register", async (req, res) => {
     res.json(newUser.rows[0]);
 
   } catch (err) {
-    console.error(err.message);
+    console.error("REGISTER ERROR:", err.message);
     res.status(500).send("Server error");
   }
 });
 
-const PORT = process.env.PORT || 5000;
+/*
+LOGIN
+*/
+app.post("/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await pool.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(401).json({ msg: "Credenciais inválidas" });
+    }
+
+    const validPassword = await bcrypt.compare(
+      password,
+      user.rows[0].password
+    );
+
+    if (!validPassword) {
+      return res.status(401).json({ msg: "Credenciais inválidas" });
+    }
+
+    const payload = {
+      user: {
+        id: user.rows[0].id
+      }
+    };
+
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ token });
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err.message);
+    res.status(500).send("Server error");
+  }
+});
+
+/*
+MIDDLEWARE INLINE (pra eliminar erro)
+*/
+const auth = (req, res, next) => {
+  const token = req.header("x-auth-token");
+
+  console.log("TOKEN RECEBIDO:", token); // 👈 DEBUG
+
+  if (!token) {
+    return res.status(401).json({ msg: "Sem token, autorização negada" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log("TOKEN DECODIFICADO:", decoded); // 👈 DEBUG
+
+    req.user = decoded.user;
+
+    next();
+  } catch (err) {
+    console.error("TOKEN ERROR:", err.message);
+    res.status(401).json({ msg: "Token inválido" });
+  }
+};
+
+/*
+ROTA PROTEGIDA
+*/
+app.get("/profile", auth, async (req, res) => {
+  try {
+    const user = await pool.query(
+      "SELECT id, name, email FROM users WHERE id = $1",
+      [req.user.id]
+    );
+
+    res.json(user.rows[0]);
+
+  } catch (err) {
+    console.error("PROFILE ERROR:", err.message);
+    res.status(500).send("Server error");
+  }
+});
+
+const PORT = 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server rodando na porta ${PORT}`);
 });
