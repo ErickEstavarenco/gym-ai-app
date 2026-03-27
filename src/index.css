@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind utilities;
+
+:root {
+  --gym-dark: #0A0A0B;
+  --gym-card: #1C1C1E;
+  --gym-orange: #FF4D00;
+  --gym-accent: #FF6B00;
+  --gym-muted: #A0A0A0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--gym-dark);
+  color: white;
+}
+
+.font-display {
+  font-family: 'Oswald', sans-serif;
+}
+
+.impact-text {
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
