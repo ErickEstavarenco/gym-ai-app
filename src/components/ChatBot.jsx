@@ -1,31 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';import axios from 'axios';
-import { useAuth } from '../context/AuthContext';import { Send, Bot, User, X, Sparkles, Dumbbell, Utensils, Calendar, TrendingUp, Zap, ChevronRight, CheckCircle, Flame, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Bot, User, X, Sparkles, Dumbbell, Utensils, Calendar, TrendingUp, Zap, CheckCircle, Flame, Loader2, Heart, Activity } from 'lucide-react';
 import { useAI } from '../hooks/useAI';
 import { useWorkout } from '../context/WorkoutContext';
+import { useAuth } from '../context/AuthContext';
 
 const ChatBot = ({ isOpen, onClose }) => {
-  const { user, api } = useAuth();
+  const { user } = useAuth();
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'bot',
-      content: 'Olá! Sou seu assistente de treino 💪\n\nComo posso ajudar você hoje?',
+      content: 'Olá! 💪 Sou seu assistente pessoal Gym AI!\n\nComo posso ajudar você hoje?',
       suggestions: [
         { icon: Dumbbell, label: 'Criar treino', action: 'criar_treino' },
         { icon: Utensils, label: 'Plano alimentar', action: 'criar_dieta' },
-        { icon: Sparkles, label: 'Gerar plano completo', action: 'gerar_plano_completo' },
-        { icon: TrendingUp, label: 'Ver progresso', action: 'ver_progresso' },
-        { icon: Calendar, label: 'Agendar treino', action: 'agendar' },
+        { icon: Sparkles, label: 'Plano completo', action: 'gerar_plano_completo' },
       ]
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [context, setContext] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const messagesEndRef = useRef(null);
-  const { sendMessage, generateNewWorkout, generateNewDiet, loading: aiLoading } = useAI();
-  const { saveWorkout, saveDiet, userProfile } = useWorkout();
+  const { sendMessage, generateNewWorkout, generateNewDiet, savePlan, loading: aiLoading } = useAI();
+  const { saveWorkout, saveDiet, updateUserProfile } = useWorkout();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -38,7 +37,6 @@ const ChatBot = ({ isOpen, onClose }) => {
   const handleSendMessage = async (userInput) => {
     if (!userInput.trim()) return;
 
-    // Adicionar mensagem do usuário
     const userMessage = {
       id: messages.length + 1,
       type: 'user',
@@ -51,7 +49,6 @@ const ChatBot = ({ isOpen, onClose }) => {
     setIsTyping(true);
 
     try {
-      // Enviar para IA
       const response = await sendMessage(userInput);
 
       const botMessage = {
@@ -67,7 +64,7 @@ const ChatBot = ({ isOpen, onClose }) => {
       const errorMessage = {
         id: messages.length + 2,
         type: 'bot',
-        content: '❌ Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.',
+        content: '❌ Desculpe, ocorreu um erro. Tente novamente.',
         time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -76,64 +73,172 @@ const ChatBot = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleGenerateFullPlan = async () => {
-    if (!user?.id) {
-      setMessages(prev => [...prev, {
-        id: prev.length + 1,
-        type: 'bot',
-        content: 'Faça login primeiro para gerar seu plano personalizado.',
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      }]);
-      return;
-    }
+  const collectUserInfo = async (answers) => {
+    const profile = {
+      objective: answers.objective || 'hipertrofia',
+      level: answers.level || 'intermediario',
+      daysPerWeek: answers.daysPerWeek || 4,
+      sessionDuration: answers.sessionDuration || 60,
+      equipment: answers.equipment || [],
+      restrictions: answers.restrictions || [],
+      preferences: answers.preferences || {},
+    };
 
+    setUserProfile(profile);
+    updateUserProfile(profile);
+
+    return profile;
+  };
+
+  const handleGenerateWorkout = async () => {
     setIsTyping(true);
+
+    setMessages(prev => [...prev, {
+      id: prev.length + 1,
+      type: 'bot',
+      content: '🏋️ Criando seu treino personalizado...\n\nIsso pode levar alguns segundos.',
+      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    }]);
+
     try {
-      setMessages(prev => [...prev, {
-        id: prev.length + 1,
-        type: 'bot',
-        content: 'Gerando seu plano completo com IA... aguarde um instante.',
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      }]);
+      const profile = userProfile || {
+        objective: 'hipertrofia',
+        level: 'intermediario',
+        daysPerWeek: 4,
+      };
 
-      const generatedWorkout = await generateNewWorkout(userProfile);
-      const generatedDiet = await generateNewDiet({
-        objective: userProfile.objective || 'ganho_massa',
-        dailyCalories: 2500,
-        mealsPerDay: 5,
-        restrictions: userProfile.restrictions || [],
-        preferences: userProfile.preferences || {}
-      });
+      const generatedWorkout = await generateNewWorkout(profile);
 
-      if (api) {
-        await api.post('/api/ai/save-plan', {
-          userId: user.id,
-          workout: generatedWorkout,
-          diet: generatedDiet,
-        });
+      if (user?.id) {
+        saveWorkout(generatedWorkout);
+        await savePlan(user.id, generatedWorkout, null);
+      } else {
+        saveWorkout(generatedWorkout);
       }
 
-      saveWorkout(generatedWorkout);
-      saveDiet(generatedDiet);
+      const numDays = generatedWorkout.days?.length || 0;
 
       setMessages(prev => [...prev, {
         id: prev.length + 1,
         type: 'bot',
-        content: 'Plano completo gerado e salvo com sucesso! Vá para a Home para iniciar seu treino.',
+        content: `✅ Treino gerado com sucesso!\n\n📋 ${generatedWorkout.title}\n📅 ${numDays} dias de treino\n🎯 Foco: ${generatedWorkout.objective}\n\nSeu treino foi salvo! Vá para a tela de Treino para ver os detalhes.`,
         time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         suggestions: [
           { icon: CheckCircle, label: 'Ver treino', action: 'ver_treino' },
-          { icon: Utensils, label: 'Ver dieta', action: 'ver_dieta' }
+          { icon: Utensils, label: 'Criar dieta', action: 'criar_dieta' },
         ]
       }]);
     } catch (error) {
       setMessages(prev => [...prev, {
         id: prev.length + 1,
         type: 'bot',
-        content: 'Falha ao gerar o plano. Tente novamente mais tarde.',
+        content: '❌ Erro ao gerar treino. Tente novamente.',
         time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       }]);
-      console.error('Erro gerar plano completo:', error);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleGenerateDiet = async () => {
+    setIsTyping(true);
+
+    setMessages(prev => [...prev, {
+      id: prev.length + 1,
+      type: 'bot',
+      content: '🥗 Criando seu plano alimentar...\n\nAguarde alguns segundos.',
+      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    }]);
+
+    try {
+      const profile = userProfile || {
+        objective: 'ganho_massa',
+        dailyCalories: 2500,
+        mealsPerDay: 5,
+      };
+
+      const generatedDiet = await generateNewDiet(profile);
+
+      if (user?.id) {
+        saveDiet(generatedDiet);
+        await savePlan(user.id, null, generatedDiet);
+      } else {
+        saveDiet(generatedDiet);
+      }
+
+      setMessages(prev => [...prev, {
+        id: prev.length + 1,
+        type: 'bot',
+        content: `✅ Plano alimentar gerado!\n\n📋 ${generatedDiet.title}\n🔥 ${generatedDiet.dailyCalories} calorias/dia\n💪 Proteínas: ${generatedDiet.macros.protein}g\n🍞 Carboidratos: ${generatedDiet.macros.carbs}g\n🥑 Gorduras: ${generatedDiet.macros.fat}g\n\nSua dieta foi salva! Vá para a tela de Dieta para ver os detalhes.`,
+        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        suggestions: [
+          { icon: CheckCircle, label: 'Ver dieta', action: 'ver_dieta' },
+          { icon: Dumbbell, label: 'Criar treino', action: 'criar_treino' },
+        ]
+      }]);
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        id: prev.length + 1,
+        type: 'bot',
+        content: '❌ Erro ao gerar dieta. Tente novamente.',
+        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleGenerateFullPlan = async () => {
+    setIsTyping(true);
+
+    setMessages(prev => [...prev, {
+      id: prev.length + 1,
+      type: 'bot',
+      content: '✨ Gerando seu plano COMPLETO (treino + dieta)...\n\nIsso pode levar alguns segundos.',
+      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    }]);
+
+    try {
+      const profile = userProfile || {
+        objective: 'hipertrofia',
+        level: 'intermediario',
+        daysPerWeek: 4,
+        dailyCalories: 2500,
+        mealsPerDay: 5,
+      };
+
+      const [generatedWorkout, generatedDiet] = await Promise.all([
+        generateNewWorkout(profile),
+        generateNewDiet(profile)
+      ]);
+
+      if (user?.id) {
+        saveWorkout(generatedWorkout);
+        saveDiet(generatedDiet);
+        await savePlan(user.id, generatedWorkout, generatedDiet);
+      } else {
+        saveWorkout(generatedWorkout);
+        saveDiet(generatedDiet);
+      }
+
+      setMessages(prev => [...prev, {
+        id: prev.length + 1,
+        type: 'bot',
+        content: `🎉 Plano completo gerado!\n\n✅ Treino: ${generatedWorkout.days?.length || 0} dias\n✅ Dieta: ${generatedDiet.dailyCalories} calorias/dia\n\nSeus planos foram salvos! Comece agora mesmo!`,
+        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        suggestions: [
+          { icon: Dumbbell, label: 'Ver treino', action: 'ver_treino' },
+          { icon: Utensils, label: 'Ver dieta', action: 'ver_dieta' },
+          { icon: TrendingUp, label: 'Ver progresso', action: 'ver_progresso' },
+        ]
+      }]);
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        id: prev.length + 1,
+        type: 'bot',
+        content: '❌ Erro ao gerar plano completo. Tente novamente.',
+        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      }]);
     } finally {
       setIsTyping(false);
     }
@@ -142,19 +247,27 @@ const ChatBot = ({ isOpen, onClose }) => {
   const generateSuggestions = (input) => {
     const lowerInput = input.toLowerCase();
 
-    if (lowerInput.includes('treino')) {
+    if (lowerInput.includes('treino') || lowerInput.includes('exercício')) {
       return [
-        { icon: Dumbbell, label: 'Hipertrofia', action: 'objetivo_hipertrofia' },
-        { icon: Flame, label: 'Emagrecer', action: 'objetivo_emagrecimento' },
+        { icon: Flame, label: 'Hipertrofia', action: 'objetivo_hipertrofia' },
+        { icon: Activity, label: 'Emagrecer', action: 'objetivo_emagrecimento' },
         { icon: Zap, label: 'Força', action: 'objetivo_forca' },
       ];
     }
 
-    if (lowerInput.includes('dieta') || lowerInput.includes('alimentação')) {
+    if (lowerInput.includes('dieta') || lowerInput.includes('alimentação') || lowerInput.includes('comida')) {
       return [
-        { icon: Utensils, label: 'Ganhar massa', action: 'dieta_massa' },
-        { icon: Flame, label: 'Perder gordura', action: 'dieta_cut' },
+        { icon: Flame, label: 'Ganhar massa', action: 'dieta_massa' },
+        { icon: Activity, label: 'Perder gordura', action: 'dieta_cut' },
         { icon: CheckCircle, label: 'Manter', action: 'dieta_manter' },
+      ];
+    }
+
+    if (lowerInput.includes('oi') || lowerInput.includes('olá')) {
+      return [
+        { icon: Dumbbell, label: 'Criar treino', action: 'criar_treino' },
+        { icon: Utensils, label: 'Dieta', action: 'criar_dieta' },
+        { icon: Sparkles, label: 'Plano completo', action: 'gerar_plano_completo' },
       ];
     }
 
@@ -165,33 +278,51 @@ const ChatBot = ({ isOpen, onClose }) => {
   };
 
   const handleSuggestionClick = async (action) => {
-    if (action === 'criar_treino') {
-      handleSendMessage('Quero criar um treino personalizado');
-    } else if (action === 'criar_dieta') {
-      handleSendMessage('Me sugira um plano alimentar');
-    } else if (action === 'objetivo_hipertrofia') {
-      setContext('hipertrofia');
-      handleSendMessage('Quero focar em hipertrofia');
-    } else if (action === 'objetivo_emagrecimento') {
-      setContext('emagrecimento');
-      handleSendMessage('Quero emagrecer');
-    } else if (action === 'objetivo_forca') {
-      setContext('forca');
-      handleSendMessage('Quero ganhar força');
-    } else if (action === 'dieta_massa') {
-      handleSendMessage('Quero ganhar massa muscular');
-    } else if (action === 'dieta_cut') {
-      handleSendMessage('Quero perder gordura');
-    } else if (action === 'dieta_manter') {
-      handleSendMessage('Quero manter o peso');
-    } else if (action === 'gerar_plano_completo') {
-      await handleGenerateFullPlan();
-    } else if (action === 'ver_treino') {
-      window.location.href = '/workout';
-    } else if (action === 'ver_dieta') {
-      window.location.href = '/diet';
-    } else {
-      handleSendMessage(action);
+    switch (action) {
+      case 'criar_treino':
+        await handleGenerateWorkout();
+        break;
+      case 'criar_dieta':
+        await handleGenerateDiet();
+        break;
+      case 'gerar_plano_completo':
+        await handleGenerateFullPlan();
+        break;
+      case 'objetivo_hipertrofia':
+        setUserProfile(prev => ({ ...prev, objective: 'hipertrofia' }));
+        handleSendMessage('Quero focar em hipertrofia e ganho de massa muscular');
+        break;
+      case 'objetivo_emagrecimento':
+        setUserProfile(prev => ({ ...prev, objective: 'emagrecimento' }));
+        handleSendMessage('Quero emagrecer e perder gordura');
+        break;
+      case 'objetivo_forca':
+        setUserProfile(prev => ({ ...prev, objective: 'forca' }));
+        handleSendMessage('Quero ganhar força');
+        break;
+      case 'dieta_massa':
+        setUserProfile(prev => ({ ...prev, objective: 'ganho_massa' }));
+        handleSendMessage('Quero ganhar massa muscular');
+        break;
+      case 'dieta_cut':
+        setUserProfile(prev => ({ ...prev, objective: 'perda_gordura' }));
+        handleSendMessage('Quero perder gordura');
+        break;
+      case 'dieta_manter':
+        setUserProfile(prev => ({ ...prev, objective: 'manutencao' }));
+        handleSendMessage('Quero manter o peso');
+        break;
+      case 'ver_treino':
+        window.location.href = '/workout';
+        break;
+      case 'ver_dieta':
+        window.location.href = '/diet';
+        break;
+      case 'ver_progresso':
+        window.location.href = '/stats';
+        break;
+      default:
+        handleSendMessage(action);
     }
   };
 
@@ -214,14 +345,11 @@ const ChatBot = ({ isOpen, onClose }) => {
             <h3 className="font-bold text-white">Assistente Gym AI</h3>
             <p className="text-xs text-white/70 flex items-center gap-1">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              Online agora
+              Online
             </p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-        >
+        <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
           <X size={20} className="text-white" />
         </button>
       </div>

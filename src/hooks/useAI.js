@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { generateWorkout, generateDiet, chatWithAI } from '../services/aiService';
+import { chatWithAI, generateWorkout, generateDiet, saveGeneratedPlan } from '../services/aiService';
 
 /**
  * Hook para gerenciar interações com IA
@@ -9,7 +9,7 @@ export const useAI = () => {
   const [error, setError] = useState(null);
   const [conversationHistory, setConversationHistory] = useState([]);
 
-  const sendMessage = useCallback(async (message) => {
+  const sendMessage = useCallback(async (message, context = {}) => {
     setLoading(true);
     setError(null);
 
@@ -19,13 +19,13 @@ export const useAI = () => {
       // Adicionar ao histórico
       setConversationHistory(prev => [
         ...prev,
-        { role: 'user', content: message },
+        { role: 'user', content: message, context },
         { role: 'assistant', content: response }
       ]);
 
       return response;
     } catch (err) {
-      const errorMsg = err.response?.data?.error || err.message || 'Erro ao processar mensagem';
+      const errorMsg = err.message || 'Erro ao processar mensagem';
       setError(errorMsg);
       throw err;
     } finally {
@@ -41,7 +41,7 @@ export const useAI = () => {
       const workout = await generateWorkout(userProfile);
       return workout;
     } catch (err) {
-      const errorMsg = err.response?.data?.error || err.message || 'Erro ao gerar treino';
+      const errorMsg = err.message || 'Erro ao gerar treino';
       setError(errorMsg);
       throw err;
     } finally {
@@ -57,11 +57,22 @@ export const useAI = () => {
       const diet = await generateDiet(userProfile);
       return diet;
     } catch (err) {
-      const errorMsg = err.response?.data?.error || err.message || 'Erro ao gerar dieta';
+      const errorMsg = err.message || 'Erro ao gerar dieta';
       setError(errorMsg);
       throw err;
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const savePlan = useCallback(async (userId, workout, diet) => {
+    try {
+      const result = await saveGeneratedPlan(userId, workout, diet);
+      return result;
+    } catch (err) {
+      const errorMsg = err.message || 'Erro ao salvar plano';
+      setError(errorMsg);
+      throw err;
     }
   }, []);
 
@@ -70,6 +81,12 @@ export const useAI = () => {
     setError(null);
   }, []);
 
+  const getLastResponse = useCallback(() => {
+    if (conversationHistory.length === 0) return null;
+    const lastMessage = conversationHistory[conversationHistory.length - 1];
+    return lastMessage.role === 'assistant' ? lastMessage.content : null;
+  }, [conversationHistory]);
+
   return {
     loading,
     error,
@@ -77,7 +94,9 @@ export const useAI = () => {
     sendMessage,
     generateNewWorkout,
     generateNewDiet,
-    clearHistory
+    savePlan,
+    clearHistory,
+    getLastResponse
   };
 };
 
