@@ -1,6 +1,7 @@
 const { Pool } = require("pg");
 
-const connectionString = "postgresql://postgres.uieikytqvsjxlpndbtaa:GymAI@2026!@aws-1-us-east-2.pooler.supabase.com:6543/postgres?sslmode=no-verify";
+// URL DIRETA DO SUPABASE (PORTA 5432) - MAIS ESTÁVEL
+const connectionString = "postgresql://postgres.uieikytqvsjxlpndbtaa:GymAI@2026!@aws-1-us-east-2.pooler.supabase.com:5432/postgres";
 
 const pool = new Pool({
   connectionString: connectionString,
@@ -9,12 +10,12 @@ const pool = new Pool({
   }
 });
 
-// Forçar a conexão imediata
+// Teste de conexão forçado com resposta imediata no log
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('❌ ERRO AO CONECTAR:', err.message);
+    console.error('❌ ERRO CRÍTICO NO BANCO:', err.message);
   } else {
-    console.log('✅ CONEXÃO ESTABELECIDA EM:', res.rows[0].now);
+    console.log('✅ BANCO DE DADOS CONECTADO COM SUCESSO! 🚀');
   }
 });
 
