@@ -1,22 +1,20 @@
 const { Pool } = require("pg");
 
-// URL COMPLETA
-const connectionString = "postgresql://postgres.uieikytqvsjxlpndbtaa:GymAI@2026!@aws-1-us-east-2.pooler.supabase.com:6543/postgres";
+const connectionString = "postgresql://postgres.uieikytqvsjxlpndbtaa:GymAI@2026!@aws-1-us-east-2.pooler.supabase.com:6543/postgres?sslmode=no-verify";
 
 const pool = new Pool({
   connectionString: connectionString,
   ssl: {
-    // FORÇANDO A ACEITAÇÃO DO CERTIFICADO
     rejectUnauthorized: false
   }
 });
 
-// TESTE DE CONEXÃO COM LOGS MAIS FORTES
+// Forçar a conexão imediata
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('❌ ERRO DE CONEXÃO:', err.message);
+    console.error('❌ ERRO AO CONECTAR:', err.message);
   } else {
-    console.log('✅ BANCO CONECTADO COM SUCESSO EM:', res.rows[0].now);
+    console.log('✅ CONEXÃO ESTABELECIDA EM:', res.rows[0].now);
   }
 });
 
