@@ -1,22 +1,23 @@
 const { Pool } = require("pg");
 
-// URL ATUALIZADA COM A NOVA SENHA DO SUPABASE
+// URL COM A SENHA NOVA E SSL CONFIGURADO
 const connectionString = "postgresql://postgres.uieikytqvsjxlpndbtaa:GymAI@2026!@aws-1-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require";
 
 const pool = new Pool({
   connectionString: connectionString,
   ssl: {
-    rejectUnauthorized: false
+    // ESTA É A CHAVE: Ignora a validação de certificado auto-assinado em produção
+    rejectUnauthorized: false 
   },
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000,
 });
 
-// TESTE DE CONEXÃO PARA O LOG DO RENDER
+// TESTE DE CONEXÃO COM LOG DETALHADO
 pool.connect((err, client, release) => {
   if (err) {
-    return console.error('ERRO CRÍTICO AO CONECTAR AO SUPABASE:', err.stack);
+    return console.error('ERRO AO CONECTAR AO SUPABASE:', err.message);
   }
   console.log('CONEXÃO COM SUPABASE ESTABELECIDA COM SUCESSO! 🚀');
   release();
