@@ -15,6 +15,24 @@ app.use(cors({
 }));
 app.use(express.json());
 
+const ensureUsersTable = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+      );
+    `);
+    console.log("Users table checked/created");
+  } catch (err) {
+    console.error("DB TABLE ERROR:", err.message);
+  }
+};
+
+ensureUsersTable();
+
 /*
 TESTE
 */
