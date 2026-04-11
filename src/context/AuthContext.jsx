@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -10,10 +10,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // CONFIGURAÇÃO DA PORTA 5000
-const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000', 
-  } );
+  const api = useMemo(() => axios.create({
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  }), []);
 
   useEffect(() => {
     if (token) {
@@ -28,6 +27,7 @@ const api = axios.create({
     }
   }, [token]);
 
+  // Carrega perfil completo do usuário (inclui weight, height, goal, level)
   const loadUser = async () => {
     try {
       const res = await api.get('/profile');
@@ -46,29 +46,36 @@ const api = axios.create({
       setToken(res.data.token);
       return { success: true };
     } catch (err) {
-      return { 
-        success: false, 
-        message: err.response?.data?.msg || "Erro ao fazer login" 
+      return {
+        success: false,
+        message: err.response?.data?.msg || "Erro ao fazer login",
       };
     }
   };
 
   const register = async (name, email, password) => {
     try {
-      // Chamada direta para o seu backend na porta 5000
       const res = await api.post('/auth/register', { name, email, password });
-      // Após registrar, fazemos o login automaticamente com o token que o backend retornar
-      if (res.data.token) {
-        setToken(res.data.token);
-      } else {
-        // Se o seu backend de registro não retorna token, fazemos login manual
-        return await login(email, password);
-      }
+      setToken(res.data.token);
       return { success: true };
     } catch (err) {
-      return { 
-        success: false, 
-        message: err.response?.data?.msg || "Erro ao registrar" 
+      return {
+        success: false,
+        message: err.response?.data?.msg || "Erro ao registrar",
+      };
+    }
+  };
+
+  // Atualiza perfil do usuário (weight, height, goal, level, name)
+  const updateProfile = async (profileData) => {
+    try {
+      const res = await api.put('/profile', profileData);
+      setUser(res.data); // atualiza estado global com os novos dados
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.msg || "Erro ao atualizar perfil",
       };
     }
   };
@@ -78,7 +85,7 @@ const api = axios.create({
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, api }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateProfile, api }}>
       {children}
     </AuthContext.Provider>
   );
