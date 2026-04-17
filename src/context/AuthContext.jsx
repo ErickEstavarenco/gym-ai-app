@@ -14,18 +14,23 @@ export const AuthProvider = ({ children }) => {
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
   }), []);
 
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-      api.defaults.headers.common['x-auth-token'] = token;
-      loadUser();
-    } else {
-      localStorage.removeItem('token');
-      delete api.defaults.headers.common['x-auth-token'];
-      setUser(null);
-      setLoading(false);
-    }
-  }, [token]);
+ useEffect(() => {
+  if (token) {
+    localStorage.setItem('token', token);
+
+    // 🔐 CORRETO
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+    loadUser();
+  } else {
+    localStorage.removeItem('token');
+
+    delete api.defaults.headers.common['Authorization'];
+
+    setUser(null);
+    setLoading(false);
+  }
+}, [token]);
 
   // Carrega perfil completo do usuário (inclui weight, height, goal, level)
   const loadUser = async () => {

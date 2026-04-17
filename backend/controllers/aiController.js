@@ -1,27 +1,12 @@
-const { OpenAI } = require("openai");
 const pool = require("../config/db");
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-/* ─────────────────────────────────────────
-   HELPER — extrai JSON da resposta da IA
-   Protege contra texto extra fora do JSON
-───────────────────────────────────────── */
-const extractJSON = (text) => {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Resposta da IA não contém JSON válido");
-  return JSON.parse(match[0]);
-};
 
 /* ─────────────────────────────────────────
    POST /api/ai/generate-workout
-   Gera treino com IA e salva no banco
+   (VERSÃO MOCK — 100% GRATUITA)
 ───────────────────────────────────────── */
 const generateWorkout = async (req, res) => {
   try {
-    // Busca perfil do usuário logado para enriquecer o prompt
+    // 🔍 Busca usuário
     const profileResult = await pool.query(
       "SELECT name, weight, height, goal, level FROM users WHERE id = $1",
       [req.user.id]
@@ -29,59 +14,55 @@ const generateWorkout = async (req, res) => {
 
     const profile = profileResult.rows[0];
 
-    // Permite sobrescrever goal/level pelo body (opcional)
-    const goal  = req.body.goal  || profile.goal  || "hipertrofia";
+    if (!profile) {
+      return res.status(404).json({ msg: "Usuário não encontrado" });
+    }
+
+    // 🎯 Dados do treino (opcional sobrescrever via body)
+    const goal = req.body.goal || profile.goal || "hipertrofia";
     const level = req.body.level || profile.level || "iniciante";
 
-    const prompt = `
-Você é um personal trainer especialista. Crie um treino de academia completo para:
+    // 🧠 MOCK de IA (simula resposta inteligente)
+    const fakeResponses = [
+      {
+        name: `Treino A - Peito e Tríceps (${level})`,
+        exercises: [
+          { name: "Supino reto", sets: 4, reps: 10 },
+          { name: "Supino inclinado", sets: 3, reps: 10 },
+          { name: "Crucifixo", sets: 3, reps: 12 },
+          { name: "Tríceps corda", sets: 3, reps: 12 },
+        ],
+      },
+      {
+        name: `Treino B - Costas e Bíceps (${level})`,
+        exercises: [
+          { name: "Puxada na frente", sets: 4, reps: 10 },
+          { name: "Remada curvada", sets: 3, reps: 10 },
+          { name: "Rosca direta", sets: 3, reps: 12 },
+          { name: "Rosca martelo", sets: 3, reps: 12 },
+        ],
+      },
+      {
+        name: `Treino C - Pernas (${level})`,
+        exercises: [
+          { name: "Agachamento", sets: 4, reps: 8 },
+          { name: "Leg press", sets: 4, reps: 10 },
+          { name: "Cadeira extensora", sets: 3, reps: 12 },
+          { name: "Panturrilha", sets: 4, reps: 15 },
+        ],
+      },
+    ];
 
-- Nome do aluno: ${profile.name}
-- Objetivo: ${goal}
-- Nível: ${level}
-${profile.weight ? `- Peso: ${profile.weight}kg` : ""}
-${profile.height ? `- Altura: ${profile.height}cm` : ""}
+    // 🎲 escolhe aleatório
+    const generated =
+      fakeResponses[Math.floor(Math.random() * fakeResponses.length)];
 
-Regras:
-- Entre 4 e 6 exercícios
-- Séries entre 3 e 5
-- Repetições entre 6 e 15
-- Exercícios adequados ao nível informado
-
-Responda SOMENTE com JSON puro, sem texto adicional, sem markdown, no formato:
-{
-  "name": "Nome do Treino",
-  "exercises": [
-    { "name": "Nome do exercício", "sets": 3, "reps": 10 },
-    { "name": "Nome do exercício", "sets": 4, "reps": 8 }
-  ]
-}
-`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-    });
-
-    const text = completion.choices[0].message.content;
-
-    // ✅ Parse seguro — não quebra se a IA mandar texto extra
-    let generated;
-    try {
-      generated = extractJSON(text);
-    } catch (parseErr) {
-      console.error("AI PARSE ERROR:", parseErr.message);
-      console.error("AI RAW RESPONSE:", text);
-      return res.status(500).json({ msg: "IA retornou formato inválido. Tente novamente." });
+    // ✅ validação
+    if (!generated.name || !generated.exercises.length) {
+      return res.status(500).json({ msg: "Erro ao gerar treino" });
     }
 
-    // Validação mínima do que a IA retornou
-    if (!generated.name || !Array.isArray(generated.exercises) || generated.exercises.length === 0) {
-      return res.status(500).json({ msg: "Treino gerado incompleto. Tente novamente." });
-    }
-
-    // ✅ Salva o treino no banco automaticamente
+    // 💾 salva treino
     const workoutResult = await pool.query(
       `INSERT INTO workouts (user_id, name)
        VALUES ($1, $2)
@@ -91,7 +72,7 @@ Responda SOMENTE com JSON puro, sem texto adicional, sem markdown, no formato:
 
     const workout = workoutResult.rows[0];
 
-    // ✅ Salva cada exercício no banco
+    // 💪 salva exercícios
     const exercisePromises = generated.exercises.map((ex) =>
       pool.query(
         `INSERT INTO exercises (workout_id, name, sets, reps)
@@ -104,9 +85,9 @@ Responda SOMENTE com JSON puro, sem texto adicional, sem markdown, no formato:
     const exerciseResults = await Promise.all(exercisePromises);
     const exercises = exerciseResults.map((r) => r.rows[0]);
 
-    // Retorna treino completo já salvo
-    res.status(201).json({
-      msg: "Treino gerado e salvo com sucesso",
+    // 🎉 resposta final
+    return res.status(201).json({
+      msg: "Treino gerado com sucesso",
       workout: {
         ...workout,
         exercises,
@@ -114,8 +95,10 @@ Responda SOMENTE com JSON puro, sem texto adicional, sem markdown, no formato:
     });
 
   } catch (err) {
-    console.error("AI ERROR:", err.message);
-    res.status(500).json({ msg: "Erro ao gerar treino com IA" });
+    console.error("AI ERROR:", err);
+    return res.status(500).json({
+      msg: "Erro ao gerar treino",
+    });
   }
 };
 
