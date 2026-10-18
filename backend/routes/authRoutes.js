@@ -1,7 +1,9 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+
 import { User } from '../models/User.js';
+import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -72,24 +74,28 @@ router.post('/login', async (req, res) => {
  * GET /api/auth/profile
  * Retorna o perfil do usuário autenticado
  */
-router.get('/profile', async (req, res) => {
+router.get('/profile', authMiddleware, async (req, res) => {
   try {
-    const token = req.headers['x-auth-token'];
-
-    if (!token) {
-      return res.status(401).json({ msg: 'Token não fornecido' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
-    const user = await User.findByPk(decoded.id);
+    const user = await User.findByPk(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ msg: 'Usuário não encontrado' });
+      return res.status(404).json({
+        msg: 'Usuário não encontrado'
+      });
     }
 
-    res.json({ id: user.id, name: user.name, email: user.email });
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email
+    });
+
   } catch (error) {
-    res.status(401).json({ msg: 'Token inválido' });
+    console.error('Erro ao buscar perfil:', error);
+
+    res.status(500).json({
+      msg: 'Erro ao buscar perfil'
+    });
   }
 });
 

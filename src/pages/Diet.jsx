@@ -1,145 +1,215 @@
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Utensils, ChevronRight, Plus, Apple, Coffee, Sun, Moon } from 'lucide-react';
-import Navbar from '../components/Navbar';
+import {
+  Utensils,
+  ChevronRight,
+  Plus,
+  Apple,
+  RefreshCw,
+  Lightbulb,
+} from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Card,
+  PageShell,
+  SectionHeader,
+  Stat,
+} from '../components/ui';
+import { fadeUp, staggerParent } from '../lib/motion';
+import { useWorkout } from '../context/WorkoutContext';
+import { generateLocalDiet, generateDiet } from '../services/aiService';
+import { useAI } from '../hooks/useAI';
+import { mealIconFor } from '../data/dietIcons';
 
+/**
+ * Diet.jsx — agora consome WorkoutContext.
+ *
+ *   - Sem currentDiet: gera via aiService.generateLocalDiet(userProfile)
+ *     automaticamente no mount e salva em WorkoutContext.
+ *   - Botão "Regenerar" usa a IA pra gerar uma nova dieta via
+ *     useAI.generateNewDiet (que cai pro fallback local se DEV_MODE).
+ *
+ * As refeições (`diet.meals[]`) vêm em shape `{name, time, calories,
+ * items:[{food, quantity, unit, calories, protein, carbs, fat}],
+ * substitutions}` e são adaptadas pro layout atual.
+ */
 const Diet = () => {
-  const meals = [
-    {
-      id: 1,
-      name: 'Café da Manhã',
-      time: '07:00',
-      icon: Sun,
-      calories: 450,
-      items: ['3 ovos mexidos', '1 fatia de pão integral', '1 banana'],
-      completed: true
-    },
-    {
-      id: 2,
-      name: 'Lanche da Manhã',
-      time: '10:00',
-      icon: Coffee,
-      calories: 200,
-      items: ['1 maçã', '30g de castanhas'],
-      completed: true
-    },
-    {
-      id: 3,
-      name: 'Almoço',
-      time: '12:30',
-      icon: Utensils,
-      calories: 650,
-      items: ['150g de peito de frango', '100g de arroz', 'Salada verde'],
-      completed: false
-    },
-    {
-      id: 4,
-      name: 'Lanche da Tarde',
-      time: '16:00',
-      icon: Coffee,
-      calories: 300,
-      items: ['1 iogurte natural', '1 scoop de whey'],
-      completed: false
-    },
-    {
-      id: 5,
-      name: 'Jantar',
-      time: '19:30',
-      icon: Moon,
-      calories: 550,
-      items: ['150g de peixe', 'Legumes no vapor', 'Batata doce'],
-      completed: false
-    }
-  ];
+  const { userProfile, currentDiet, saveDiet } = useWorkout();
+  const { generateNewDiet, loading } = useAI();
+  const [localDiet, setLocalDiet] = useState(currentDiet);
 
-  const totalCalories = meals.reduce((acc, meal) => acc + meal.calories, 0);
-  const completedMeals = meals.filter(m => m.completed).length;
+  // Garante que sempre tenha uma dieta disponível. Se o user chegar
+  // primeiro na rota /diet sem ter gerado nada pelo chat, monta agora.
+  useEffect(() => {
+    if (currentDiet) {
+      setLocalDiet(currentDiet);
+      return;
+    }
+    const generated = generateLocalDiet({
+      objective: mapObjectiveForDiet(userProfile.objective),
+      dailyCalories: userProfile.dailyCalories || 2500,
+      mealsPerDay: userProfile.mealsPerDay || 5,
+    });
+    const saved = saveDiet(generated);
+    setLocalDiet(saved);
+  }, [currentDiet, saveDiet, userProfile]);
+
+  const handleRegenerate = async () => {
+    try {
+      const adapted = {
+        ...userProfile,
+        objective: mapObjectiveForDiet(userProfile.objective),
+        dailyCalories: userProfile.dailyCalories || 2500,
+        mealsPerDay: userProfile.mealsPerDay || 5,
+      };
+      const next = await generateNewDiet(adapted);
+      const saved = saveDiet(next);
+      setLocalDiet(saved);
+    } catch (err) {
+      // falha silenciosa — a dieta atual segue aparecendo
+      // eslint-disable-next-line no-console
+      console.warn('[Diet] regenerate falhou:', err);
+    }
+  };
+
+  const meals = useMemo(() => {
+    if (!localDiet?.meals) return [];
+    return localDiet.meals.map((m, idx) => ({
+      id: `meal-${idx}`,
+      name: m.name,
+      time: m.time,
+      icon: mealIconFor(m.name),
+      calories: m.calories,
+      items: Array.isArray(m.items) ? m.items.map((i) => i.food) : [],
+      // marca só a primeira refeição como completed (visual inicial)
+      completed: idx === 0,
+    }));
+  }, [localDiet]);
+
+  const totalCalories = meals.reduce((acc, m) => acc + m.calories, 0);
+  const completedMeals = meals.filter((m) => m.completed).length;
+
+  const tip = localDiet?.tips?.[0] || 'Beba pelo menos 3L de água por dia';
 
   return (
-    <div className="min-h-screen bg-gym-dark text-white pb-24">
-      {/* Header */}
-      <div className="p-6 pt-12">
-        <h1 className="text-3xl font-black">Plano Alimentar</h1>
-        <p className="text-gym-muted mt-1">Sua nutrição diária</p>
-      </div>
+    <PageShell
+      header={
+        <SectionHeader
+          kicker="NUTRIÇÃO"
+          title={localDiet?.title || 'PLANO ALIMENTAR'}
+          subtitle="Sua nutrição diária"
+        />
+      }
+    >
+      <motion.div variants={staggerParent(0.08)} initial="hidden" animate="show" className="space-y-6">
+        <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3">
+          <Stat label="Calorias" value={totalCalories} unit="KCAL" icon={Apple} color="accent" />
+          <Stat
+            label="Refeições"
+            value={`${completedMeals}/${meals.length}`}
+            unit="CONCLUÍDAS"
+            icon={Utensils}
+            color="success"
+          />
+        </motion.div>
 
-      {/* Resumo */}
-      <div className="px-6 mb-6">
-        <div className="grid grid-cols-2 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gym-card rounded-2xl p-5 border border-white/5"
-          >
-            <Apple size={24} className="text-gym-orange mb-3" />
-            <p className="text-2xl font-black">{totalCalories}</p>
-            <p className="text-xs text-gym-muted uppercase tracking-wider">Calorias</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-gym-card rounded-2xl p-5 border border-white/5"
-          >
-            <Utensils size={24} className="text-green-400 mb-3" />
-            <p className="text-2xl font-black">{completedMeals}/{meals.length}</p>
-            <p className="text-xs text-gym-muted uppercase tracking-wider">Refeições</p>
-          </motion.div>
-        </div>
-      </div>
+        <motion.div variants={fadeUp}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-bold text-gym-text-secondary uppercase tracking-[0.2em]">
+              Refeições de hoje
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={RefreshCw}
+              onClick={handleRegenerate}
+              disabled={loading}
+            >
+              {loading ? 'Gerando...' : 'Regenerar'}
+            </Button>
+          </div>
 
-      {/* Refeições */}
-      <div className="px-6 space-y-4">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-bold">Hoje</h2>
-          <button className="text-gym-orange text-sm font-semibold flex items-center gap-1">
-            <Plus size={16} /> Adicionar
-          </button>
-        </div>
+          <div className="space-y-2.5">
+            {meals.map((meal) => (
+              <Card key={meal.id} variant="default" padding="md" interactive>
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                      meal.completed
+                        ? 'bg-gym-success/15'
+                        : 'bg-gym-accent-muted'
+                    }`}
+                  >
+                    <meal.icon
+                      size={22}
+                      strokeWidth={2.5}
+                      className={meal.completed ? 'text-gym-success' : 'text-gym-accent'}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3
+                        className={`font-bold text-base ${
+                          meal.completed ? 'text-gym-text-secondary line-through' : 'text-gym-text-primary'
+                        }`}
+                      >
+                        {meal.name}
+                      </h3>
+                      <Badge variant="neutral" size="sm">
+                        {meal.time}
+                      </Badge>
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="font-display impact-text text-xl gradient-text">
+                        {meal.calories}
+                      </span>
+                      <span className="text-[10px] font-bold text-gym-text-muted uppercase tracking-wider">
+                        kcal
+                      </span>
+                    </div>
+                    <p className="text-xs text-gym-text-secondary mt-1 truncate">
+                      {meal.items.join(' • ') || 'Sem itens definidos'}
+                    </p>
+                  </div>
+                  <ChevronRight size={18} className="text-gym-text-muted flex-shrink-0" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </motion.div>
 
-        {meals.map((meal, index) => (
-          <motion.div
-            key={meal.id}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className={`bg-gym-card rounded-2xl p-5 border border-white/5 flex items-center gap-4 ${
-              meal.completed ? 'opacity-60' : ''
-            }`}
-          >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              meal.completed ? 'bg-green-500/20' : 'bg-gym-orange/20'
-            }`}>
-              <meal.icon size={24} className={meal.completed ? 'text-green-400' : 'text-gym-orange'} />
-            </div>
-            <div className="flex-1">
-              <div className="flex justify-between items-start">
-                <h3 className="font-bold">{meal.name}</h3>
-                <span className="text-xs text-gym-muted">{meal.time}</span>
+        <motion.div variants={fadeUp}>
+          <Card variant="glass" className="relative overflow-hidden">
+            <div className="absolute -top-10 -left-10 w-32 h-32 bg-gym-accent/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative flex items-start gap-3">
+              <div className="bg-gradient-to-br from-gym-accent to-gym-accent-hover p-2.5 rounded-xl shadow-glow-sm flex-shrink-0">
+                <Lightbulb size={18} className="text-white" />
               </div>
-              <p className="text-sm text-gym-muted mt-1">{meal.calories} kcal</p>
-              <p className="text-xs text-gym-muted mt-1">{meal.items.join(', ')}</p>
+              <div>
+                <h3 className="font-bold text-gym-accent text-sm uppercase tracking-wider">
+                  Dica da IA
+                </h3>
+                <p className="text-xs text-gym-text-secondary mt-1.5 leading-relaxed">
+                  {tip}
+                </p>
+              </div>
             </div>
-            <button className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-              <ChevronRight size={20} className="text-gym-muted" />
-            </button>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Dica da IA */}
-      <div className="px-6 mt-6">
-        <div className="bg-gradient-to-r from-gym-orange/20 to-gym-accent/10 border border-gym-orange/20 rounded-2xl p-5">
-          <h3 className="font-bold text-gym-orange mb-2">💡 Dica da IA</h3>
-          <p className="text-sm text-gym-muted">
-            Você está consumindo proteína suficiente! Para ganho de massa, tente adicionar mais 20g de proteína no pós-treino.
-          </p>
-        </div>
-      </div>
-
-      <Navbar />
-    </div>
+          </Card>
+        </motion.div>
+      </motion.div>
+    </PageShell>
   );
+};
+
+const mapObjectiveForDiet = (objective) => {
+  const map = {
+    hipertrofia: 'ganho_massa',
+    emagrecimento: 'perda_gordura',
+    forca: 'ganho_massa',
+    resistencia: 'manutencao',
+  };
+  return map[objective] || objective || 'manutencao';
 };
 
 export default Diet;

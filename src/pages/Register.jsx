@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, User, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useNavigate, Link } from 'react-router-dom';
+import { Mail, Lock, User, Eye, EyeOff, AlertCircle, ChevronLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Button, Card, Input, Logo } from '../components/ui';
+import { fadeUp, staggerParent } from '../lib/motion';
 
 const Register = () => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -13,26 +15,17 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const onChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const onSubmit = async e => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
     if (formData.password !== formData.confirmPassword) {
       setError('As senhas não coincidem');
       return;
     }
-
-    if (formData.password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-
     setLoading(true);
-
-    const res = await register(formData.name, formData.email, formData.password);
-
+    const res = await register({ name: formData.name, email: formData.email, password: formData.password });
     if (res.success) {
       navigate('/');
     } else {
@@ -42,123 +35,116 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gym-dark flex flex-col items-center justify-center p-6 text-white">
+    <div className="min-h-screen bg-gym-bg bg-canvas-glow flex flex-col items-center justify-center p-6 text-gym-text-primary">
       <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
+        variants={staggerParent(0.08)}
+        initial="hidden"
+        animate="show"
         className="w-full max-w-md space-y-6"
       >
-        <Link to="/login" className="flex items-center gap-2 text-gym-muted hover:text-gym-orange transition-colors w-fit">
-          <ArrowLeft size={20} />
-          <span className="text-sm font-bold">VOLTAR</span>
-        </Link>
+        <motion.div variants={fadeUp}>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-1.5 text-gym-text-secondary hover:text-gym-text-primary text-sm transition-colors"
+          >
+            <ChevronLeft size={16} />
+            Voltar
+          </Link>
+        </motion.div>
 
-        <div className="text-center">
-          <h1 className="text-4xl font-black tracking-tight">CRIAR CONTA</h1>
-          <p className="text-gym-muted mt-2 text-sm uppercase tracking-widest font-bold">Sua jornada começa aqui</p>
-        </div>
+        <motion.div variants={fadeUp} className="text-center space-y-4">
+          <motion.div
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            className="flex justify-center"
+          >
+            <Logo size="md" />
+          </motion.div>
+          <h1 className="font-display impact-text text-4xl text-white">
+            Criar<span className="gradient-text"> Conta</span>
+          </h1>
+          <p className="text-gym-text-secondary text-sm">
+            Comece sua transformação hoje
+          </p>
+        </motion.div>
 
-        <div className="bg-gym-card p-8 rounded-[2.5rem] border border-white/5 shadow-2xl">
-          <form onSubmit={onSubmit} className="space-y-5">
-            {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-sm text-center"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gym-muted ml-1 uppercase tracking-wider">Nome Completo</label>
-              <div className="relative">
-                <User className="absolute left-4 top-3.5 text-gym-muted" size={20} />
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={onChange}
-                  required
-                  className="w-full bg-gym-dark border border-white/10 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-gym-orange transition-colors text-sm"
-                  placeholder="Seu nome"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gym-muted ml-1 uppercase tracking-wider">E-mail</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-3.5 text-gym-muted" size={20} />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={onChange}
-                  required
-                  className="w-full bg-gym-dark border border-white/10 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-gym-orange transition-colors text-sm"
-                  placeholder="seu@email.com"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gym-muted ml-1 uppercase tracking-wider">Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-3.5 text-gym-muted" size={20} />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={onChange}
-                  required
-                  className="w-full bg-gym-dark border border-white/10 rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-gym-orange transition-colors text-sm"
-                  placeholder="Mínimo 6 caracteres"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-3.5 text-gym-muted hover:text-white"
+        <motion.div variants={fadeUp}>
+          <Card variant="glass" padding="lg" className="rounded-hero">
+            <form onSubmit={onSubmit} className="space-y-4">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-2.5 bg-gym-danger/10 border border-gym-danger/30 text-gym-danger p-3.5 rounded-xl text-sm"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gym-muted ml-1 uppercase tracking-wider">Confirmar Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-3.5 text-gym-muted" size={20} />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={onChange}
-                  required
-                  className="w-full bg-gym-dark border border-white/10 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-gym-orange transition-colors text-sm"
-                  placeholder="Repita a senha"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-gym-orange to-gym-accent hover:opacity-90 text-white font-bold py-4 rounded-2xl shadow-lg shadow-gym-orange/20 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin" size={24} />
-              ) : (
-                "Criar Minha Conta"
+                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </motion.div>
               )}
-            </button>
-          </form>
-        </div>
 
-        <p className="text-center text-gym-muted text-xs">
-          Ao criar uma conta, você concorda com nossos{' '}
-          <Link to="/terms" className="text-gym-orange hover:underline">Termos de Uso</Link>
-        </p>
+              <Input
+                label="Nome"
+                icon={User}
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={onChange}
+                placeholder="Seu nome"
+                required
+              />
+              <Input
+                label="E-mail"
+                icon={Mail}
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={onChange}
+                placeholder="seu@email.com"
+                required
+              />
+              <Input
+                label="Senha"
+                icon={Lock}
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={formData.password}
+                onChange={onChange}
+                placeholder="••••••••"
+                required
+                trailingIcon={showPassword ? EyeOff : Eye}
+                onTrailingClick={() => setShowPassword(!showPassword)}
+              />
+              <Input
+                label="Confirmar senha"
+                icon={Lock}
+                type={showPassword ? 'text' : 'password'}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={onChange}
+                placeholder="••••••••"
+                required
+              />
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="xl"
+                loading={loading}
+                fullWidth
+              >
+                Criar conta
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center text-gym-text-secondary text-sm">
+              Já tem conta?{' '}
+              <Link to="/login" className="text-gym-accent link-underline font-semibold">
+                Entrar
+              </Link>
+            </div>
+          </Card>
+        </motion.div>
       </motion.div>
     </div>
   );

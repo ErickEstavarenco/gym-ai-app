@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Dumbbell, Flame, Calendar, MessageSquare, Trophy, Zap, Clock } from 'lucide-react';
-import Navbar from '../components/Navbar';
+import { Dumbbell, Flame, Trophy, Zap, Clock, MessageSquare, TrendingUp, ArrowRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import ChatBot from '../components/ChatBot';
+import { Badge, Button, Card, PageShell, SectionHeader, Stat } from '../components/ui';
+import { fadeUp, glowPulse, staggerParent } from '../lib/motion';
+
+const workoutSplits = [
+  { id: 1, name: 'PEITO & TRÍCEPS', focus: 'PUSH FOCUS • HIPERTROFIA', time: '55', exercises: 8, gradient: 'from-gym-accent to-orange-500', cta: 'INICIAR', completed: false, icon: Flame },
+  { id: 2, name: 'COSTAS & BÍCEPS', focus: 'PULL FOCUS • FORÇA', time: '62', exercises: 7, gradient: 'from-sky-600 to-cyan-400', cta: 'REFAZER', completed: true, icon: TrendingUp },
+  { id: 3, name: 'PERNAS & CORE', focus: 'LOWER BODY • ESTABILIDADE', time: '48', exercises: 6, gradient: 'from-emerald-600 to-teal-400', cta: 'INICIAR', completed: false, icon: Trophy },
+];
 
 const Home = () => {
   const { user, api } = useAuth();
@@ -12,249 +19,167 @@ const Home = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [latestWorkout, setLatestWorkout] = useState(null);
   const [latestDiet, setLatestDiet] = useState(null);
-  const [loadingPlan, setLoadingPlan] = useState(false);
 
-  React.useEffect(() => {
+  const userInitial = (user?.name || user?.email || 'U')[0].toUpperCase();
+  const greetingKicker = user?.name ? `Olá, ${user.name.split(' ')[0].toUpperCase()}` : 'MY DAILY ROUTINE';
+
+  useEffect(() => {
     const fetchLatestPlan = async () => {
       if (!user?.id || !api) return;
-      setLoadingPlan(true);
       try {
-        const res = await api.get(`/api/ai/latest-plan/${user.id}`);
+        // ✅ CORRIGIDO: sem user.id na URL — backend usa JWT
+        const res = await api.get('/api/ai/latest-plan');
         setLatestWorkout(res.data.latestWorkout);
         setLatestDiet(res.data.latestDiet);
       } catch (err) {
-        console.error('Erro ao buscar plano:', err);
-      } finally {
-        setLoadingPlan(false);
+        // Silencioso — usuário novo sem plano ainda
       }
     };
-
     fetchLatestPlan();
   }, [user, api]);
 
-  // Dados de exemplo para os treinos
-  const workoutSplits = [
-    {
-      id: 1,
-      name: 'PEITO & TRÍCEPS',
-      focus: 'PUSH FOCUS • HIPERTROFIA',
-      time: '55 MIN',
-      exercises: 8,
-      color: 'from-gym-orange to-orange-500',
-      bgImage: 'chest',
-      cta: 'START NOW',
-      completed: false
-    },
-    {
-      id: 2,
-      name: 'COSTAS & BÍCEPS',
-      focus: 'PULL FOCUS • FORÇA',
-      time: '62 MIN',
-      exercises: 7,
-      color: 'from-blue-600 to-blue-400',
-      bgImage: 'back',
-      cta: 'VIEW PLAN',
-      completed: true
-    },
-    {
-      id: 3,
-      name: 'PERNAS & CORE',
-      focus: 'LOWER BODY • ESTABILIDADE',
-      time: '48 MIN',
-      exercises: 6,
-      color: 'from-emerald-600 to-emerald-400',
-      bgImage: 'legs',
-      cta: 'VIEW PLAN',
-      completed: false
-    },
-  ];
-
-  // Estatísticas rápidas
-  const stats = [
-    { label: 'Treinos', value: '12', icon: Dumbbell, color: 'text-gym-orange' },
-    { label: 'Calorias', value: '1.2k', icon: Flame, color: 'text-orange-400' },
-    { label: 'Sequência', value: '5 dias', icon: Trophy, color: 'text-yellow-400' },
-  ];
+  const header = (
+    <SectionHeader
+      kicker={greetingKicker}
+      title="WORKOUT SPLIT"
+      rightSlot={
+        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-gym-accent to-gym-accent-hover flex items-center justify-center text-white font-display impact-text text-lg border-2 border-gym-bg shadow-glow-sm">
+          {userInitial}
+        </div>
+      }
+    />
+  );
 
   return (
-    <div className="min-h-screen bg-gym-dark text-white pb-24">
-      {/* Header */}
-      <header className="pt-12 px-6 pb-4 flex justify-between items-center sticky top-0 bg-gym-dark/80 backdrop-blur-md z-30">
-        <div>
-          <p className="text-xs font-bold text-gym-orange tracking-widest uppercase">My Daily Routine</p>
-          <h1 className="font-display text-4xl impact-text mt-1">WORKOUT SPLIT</h1>
-        </div>
-        <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden border-2 border-gym-orange">
-          <img
-            alt="User Profile"
-            className="w-full h-full object-cover"
-            src="https://ui-avatars.com/api/?name=User&background=FF4D00&color=fff"
-          />
-        </div>
-      </header>
+    <PageShell header={header}>
+      <motion.div variants={staggerParent(0.08)} initial="hidden" animate="show" className="space-y-6">
 
-      <main className="px-6 space-y-6 pt-2">
         {/* AI Recommendation */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-gym-orange/10 border border-gym-orange/20 p-4 rounded-2xl flex items-start gap-4"
-        >
-          <div className="bg-gym-orange p-2 rounded-xl text-white">
-            <Zap size={20} />
+        <motion.div variants={fadeUp}>
+          <Card variant="glass" className="relative overflow-hidden">
+            <div className="absolute -top-12 -right-12 w-40 h-40 bg-gym-accent/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative flex items-start gap-4">
+              <div className="bg-gradient-to-br from-gym-accent to-gym-accent-hover p-3 rounded-2xl shadow-glow-sm flex-shrink-0">
+                <Zap size={20} className="text-white" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-bold text-gym-text-primary text-sm uppercase tracking-wider">AI Recommendation</h3>
+                <p className="text-xs text-gym-text-secondary mt-1.5 leading-relaxed">
+                  {latestWorkout
+                    ? `Seu último treino foi "${latestWorkout.title}". Quer continuar ou gerar um novo?`
+                    : 'Converse com o Personal AI para gerar seu treino e dieta personalizados.'}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Latest Plan */}
+        {(latestWorkout || latestDiet) && (
+          <motion.div variants={fadeUp}>
+            <Card variant="elevated" glow>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gym-text-primary text-sm uppercase tracking-wider">Plano AI recente</h3>
+                <Badge variant="accent" size="sm"><Zap size={10} />AI</Badge>
+              </div>
+              <div className="space-y-4">
+                {latestWorkout && (
+                  <div>
+                    <p className="text-base font-bold text-white">{latestWorkout.title}</p>
+                    <p className="text-xs text-gym-text-secondary mt-1">{latestWorkout.objective || '—'} • {latestWorkout.days_per_week || '—'} dias/sem</p>
+                  </div>
+                )}
+                {latestDiet && (
+                  <div>
+                    <p className="text-base font-bold text-white">{latestDiet.title}</p>
+                    <p className="text-xs text-gym-text-secondary mt-1">{latestDiet.daily_calories || '—'} kcal/dia</p>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2">
+                  {latestWorkout && (
+                    <Button variant="primary" size="md" onClick={() => navigate('/workout')} rightIcon={ArrowRight} className="flex-1">Iniciar treino</Button>
+                  )}
+                  {latestDiet && (
+                    <Button variant="outline" size="md" onClick={() => navigate('/diet')} className="flex-1">Ver dieta</Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Workout Splits */}
+        <motion.div variants={fadeUp}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-bold text-gym-text-secondary uppercase tracking-[0.2em]">Splits disponíveis</h2>
+            <Badge variant="neutral" size="sm">{workoutSplits.length}</Badge>
           </div>
-          <div>
-            <h3 className="font-bold text-sm">AI Recommendation</h3>
-            <p className="text-xs opacity-80 mt-1">Based on your last recovery, I've increased the volume for Split B today.</p>
+          <div className="space-y-3">
+            {workoutSplits.map((workout, index) => (
+              <Card key={workout.id} variant="default" padding="lg" interactive onClick={() => navigate('/workout')} className="relative overflow-hidden group">
+                <div className={`absolute -right-12 -top-12 w-48 h-48 bg-gradient-to-br ${workout.gradient} opacity-20 rounded-full blur-2xl group-hover:opacity-30 transition-opacity`} />
+                <div className="relative">
+                  <div className="flex justify-between items-start gap-3 mb-4">
+                    <Badge variant="solid" size="sm">SPLIT {String.fromCharCode(65 + index)}</Badge>
+                    <Badge variant="neutral" size="sm" icon={Clock}>{workout.time} MIN</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${workout.gradient} flex items-center justify-center shadow-glow-sm`}>
+                      <workout.icon size={22} className="text-white" strokeWidth={2.5} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-display impact-text text-2xl text-white leading-none">{workout.name}</h3>
+                      <p className="text-[10px] text-gym-text-secondary uppercase tracking-wider mt-1 font-medium">{workout.focus}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" size="sm" icon={Dumbbell}>{workout.exercises} exercícios</Badge>
+                    <Button variant={workout.completed ? 'ghost' : 'primary'} size="sm" rightIcon={ArrowRight} className="ml-auto">{workout.cta}</Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         </motion.div>
 
-        {loadingPlan ? (
-          <div className="bg-gym-card border border-white/20 rounded-2xl p-4 text-sm">Carregando seu plano mais recente...</div>
-        ) : latestWorkout || latestDiet ? (
-          <div className="bg-gym-card border border-gym-orange/30 p-4 rounded-2xl mb-4">
-            <h3 className="text-white font-bold mb-2">Seu plano AI mais recente</h3>
-            {latestWorkout && (
-              <div className="mb-3">
-                <p className="text-sm font-semibold">Treino: {latestWorkout.title}</p>
-                <p className="text-xs text-slate-300">Objetivo: {latestWorkout.objective || '—'}</p>
-                <p className="text-xs">Dias/semana: {latestWorkout.days_per_week || '—'}</p>
-                <button
-                  onClick={() => navigate('/workout')}
-                  className="mt-2 py-2 px-3 rounded-lg bg-gym-orange text-white text-sm"
-                >
-                  Iniciar treino salvo
-                </button>
-              </div>
-            )}
-            {latestDiet && (
-              <div>
-                <p className="text-sm font-semibold">Dieta: {latestDiet.title}</p>
-                <p className="text-xs text-slate-300">Calorias: {latestDiet.daily_calories || '—'}</p>
-                <button
-                  onClick={() => navigate('/diet')}
-                  className="mt-2 py-2 px-3 rounded-lg bg-sky-500 text-white text-sm"
-                >
-                  Ver plano alimentar
-                </button>
-              </div>
-            )}
+        {/* Stats */}
+        <motion.div variants={fadeUp}>
+          <h2 className="text-xs font-bold text-gym-text-secondary uppercase tracking-[0.2em] mb-3">Your stats</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Stat label="Treinos" value="12" unit="TOTAL" icon={Dumbbell} color="accent" />
+            <Stat label="Calorias" value="1.2k" unit="SEMANA" icon={Flame} color="warning" />
           </div>
-        ) : null}
+        </motion.div>
 
-        {/* Workout Splits */}
-        <div className="space-y-4">
-          {workoutSplits.map((workout, index) => (
-            <motion.div
-              key={workout.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="relative overflow-hidden group rounded-3xl bg-gym-card shadow-xl border border-slate-100 dark:border-slate-800"
-            >
-              {/* Background Image with Gradient Overlay */}
-              <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 dark:opacity-40 group-hover:scale-110 transition-transform duration-500">
-                <div className={`w-full h-full bg-gradient-to-br ${workout.color} opacity-30`}></div>
-              </div>
-
-              <div className="relative p-6 z-10">
-                <div className="flex justify-between items-start">
-                  <span className={`text-white text-[10px] font-black px-2 py-1 rounded impact-text bg-gradient-to-r ${workout.color}`}>
-                    SPLIT {String.fromCharCode(65 + index)}
-                  </span>
-                  <div className="flex gap-2">
-                    <span className="bg-white/10 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                      <Clock size={12} /> {workout.time}
-                    </span>
-                    <span className="bg-white/10 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                      <Dumbbell size={12} /> {workout.exercises} EXERCÍCIOS
-                    </span>
-                  </div>
-                </div>
-
-                <h2 className="font-display text-3xl impact-text mt-4 leading-none">
-                  {workout.name.split(' ')[0]} &<br/>{workout.name.split(' ')[2]}
-                </h2>
-                <p className="text-xs text-slate-400 mt-2 font-medium">{workout.focus}</p>
-
-                <div className="mt-6 flex gap-2">
-                  <button
-                    onClick={() => navigate('/workout')}
-                    className={`flex-1 py-3 rounded-xl font-bold text-sm active:scale-95 transition-transform ${
-                      workout.completed
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-gym-orange text-white'
-                    }`}
-                  >
-                    {workout.completed ? 'REFAZER' : 'INICIAR'}
-                  </button>
-                  <button className="w-12 h-12 flex items-center justify-center bg-white/10 rounded-xl text-slate-300">
-                    <MoreHoriz size={20} />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gym-card p-4 rounded-2xl border border-slate-800"
-          >
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly Streak</p>
-            <div className="flex items-end gap-2 mt-1">
-              <span className="text-2xl font-display impact-text text-gym-orange">5 DAYS</span>
-              <div className="flex gap-0.5 mb-1.5">
-                <div className="w-1 h-3 bg-gym-orange rounded-full"></div>
-                <div className="w-1 h-4 bg-gym-orange rounded-full"></div>
-                <div className="w-1 h-2 bg-gym-orange rounded-full"></div>
-                <div className="w-1 h-5 bg-gym-orange rounded-full"></div>
-                <div className="w-1 h-3 bg-gym-orange rounded-full"></div>
-              </div>
+        {/* Streak */}
+        <motion.div variants={fadeUp}>
+          <Card variant="default" padding="md">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-bold text-gym-text-secondary uppercase tracking-[0.15em]">Weekly Streak</span>
+              <Badge variant="success" size="sm" icon={Trophy}>5 dias</Badge>
             </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-gym-card p-4 rounded-2xl border border-slate-800"
-          >
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Calories Est.</p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-2xl font-display impact-text">1,250</span>
-              <span className="text-[10px] font-bold opacity-60">KCAL</span>
+            <div className="flex items-baseline gap-2 mb-4">
+              <span className="font-display impact-text text-4xl gradient-text">5 DAYS</span>
             </div>
-          </motion.div>
-        </div>
-      </main>
+            <div className="flex gap-1.5">
+              {[65, 80, 50, 100, 65, 35, 75].map((h, i) => (
+                <motion.div key={i} initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 0.5 + i * 0.05, duration: 0.6 }} className="flex-1 rounded-md bg-gradient-to-t from-gym-line to-gym-accent" style={{ minHeight: 4 }} />
+              ))}
+            </div>
+          </Card>
+        </motion.div>
 
-      {/* Chat Button */}
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setChatOpen(!chatOpen)}
-        className="fixed bottom-28 right-6 w-14 h-14 bg-gym-orange text-white rounded-full shadow-2xl shadow-gym-orange/40 z-40 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform"
-      >
-        <MessageSquare size={28} />
-        <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-gym-dark rounded-full"></div>
+      </motion.div>
+
+      {/* Chat FAB */}
+      <motion.button {...glowPulse} whileTap={{ scale: 0.92 }} onClick={() => setChatOpen(!chatOpen)} className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-br from-gym-accent to-gym-accent-hover text-white rounded-full z-40 flex items-center justify-center hover:scale-105 transition-transform" aria-label="Chat AI">
+        <MessageSquare size={26} strokeWidth={2.5} />
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-gym-success border-2 border-gym-bg rounded-full animate-pulse-dot" />
       </motion.button>
 
-      {/* Chat Bot */}
       <ChatBot isOpen={chatOpen} onClose={() => setChatOpen(false)} />
-
-      <Navbar />
-    </div>
+    </PageShell>
   );
 };
-
-// Importar ícone Material
-const MoreHoriz = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-  </svg>
-);
 
 export default Home;

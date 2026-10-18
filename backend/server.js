@@ -11,59 +11,58 @@ import './models/Diet.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
-// Middleware
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir requests sem origin (como mobile apps) ou localhost com qualquer porta
-    if (!origin || origin.startsWith('http://localhost:')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origem não permitida → ${origin}`));
   },
-  credentials: true
+  credentials: true,
 }));
+
 app.use(express.json());
 
-// Rotas
 app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
 
-// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Servidor rodando' });
+  res.json({ status: 'OK', message: 'Servidor rodando', env: process.env.NODE_ENV });
 });
 
-// Erro 404
 app.use((req, res) => {
-  res.status(404).json({ error: 'Rota não encontrada' });
+  res.status(404).json({ error: `Rota não encontrada: ${req.method} ${req.path}` });
 });
 
-// Iniciar servidor com conexão ao DB
+app.use((err, req, res, next) => {
+  console.error('💥 Erro:', err);
+  res.status(500).json({ error: err.message || 'Erro interno' });
+});
+
 const startServer = async () => {
   let dbConnected = false;
-  
   try {
     await testConnection();
-    await import('./config/database.js').then(async (mod) => {
-      const { sequelize } = mod;
-      await sequelize.sync();
-      console.log('📦 Modelos sincronizados no banco de dados');
-    });
+    const { sequelize } = await import('./config/database.js');
+    await sequelize.sync({ alter: false });
+    console.log('📦 Modelos sincronizados');
     dbConnected = true;
   } catch (error) {
-    console.warn('⚠️ Banco de dados não disponível. Rodando em modo DEV sem persistência:', error.message);
-    dbConnected = false;
+    console.warn('⚠️  Banco indisponível:', error.message);
   }
 
   app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
-    console.log(`📡 CORS habilitado para http://localhost:5173`);
-    if (!dbConnected) {
-      console.log('💾 Modo desenvolvimento: sem conexão com banco de dados');
-    }
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`🌍 Origens permitidas: ${allowedOrigins.join(', ')}`);
+    if (!dbConnected) console.log('💾 Modo sem banco de dados');
   });
 };
 

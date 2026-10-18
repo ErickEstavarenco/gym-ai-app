@@ -1,90 +1,130 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Mail, Loader2, CheckCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, Link } from 'react-router-dom';
+import { Mail, ChevronLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Button, Card, Input, Logo } from '../components/ui';
+import { fadeUp, springBounce, staggerParent } from '../lib/motion';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    // Simulação de envio
-    setTimeout(() => {
-      setLoading(false);
-      setSent(true);
-    }, 1500);
+    await new Promise((r) => setTimeout(r, 800));
+    setSubmitted(true);
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gym-dark flex flex-col items-center justify-center p-6 text-white">
+    <div className="min-h-screen bg-gym-bg bg-canvas-glow flex flex-col items-center justify-center p-6 text-gym-text-primary">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md space-y-8"
+        variants={staggerParent(0.1)}
+        initial="hidden"
+        animate="show"
+        className="w-full max-w-md space-y-6"
       >
-        <Link to="/login" className="flex items-center gap-2 text-gym-muted hover:text-gym-orange transition-colors w-fit">
-          <ArrowLeft size={20} />
-          <span className="text-sm font-bold">VOLTAR</span>
-        </Link>
+        <motion.div variants={fadeUp}>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-1.5 text-gym-text-secondary hover:text-gym-text-primary text-sm transition-colors"
+          >
+            <ChevronLeft size={16} />
+            Voltar para login
+          </Link>
+        </motion.div>
 
-        <div className="text-center">
-          <h1 className="text-3xl font-black tracking-tight">RECUPERAR SENHA</h1>
-          <p className="text-gym-muted mt-2">Enviaremos um link para seu e-mail</p>
-        </div>
+        <motion.div variants={fadeUp} className="text-center space-y-4">
+          <motion.div
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            className="flex justify-center"
+          >
+            <Logo size="md" />
+          </motion.div>
+          <h1 className="font-display impact-text text-3xl text-white">
+            Recuperar<span className="gradient-text"> Senha</span>
+          </h1>
+          <p className="text-gym-text-secondary text-sm">
+            Enviaremos um link de recuperação para o seu e-mail
+          </p>
+        </motion.div>
 
-        <div className="bg-gym-card p-8 rounded-[2.5rem] border border-white/5 shadow-2xl">
-          {!sent ? (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gym-muted ml-1 uppercase tracking-wider">E-mail</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-3.5 text-gym-muted" size={20} />
-                  <input
+        <motion.div variants={fadeUp}>
+          <Card variant="glass" padding="lg" className="rounded-hero">
+            <AnimatePresence mode="wait">
+              {submitted ? (
+                <motion.div
+                  key="success"
+                  variants={springBounce}
+                  initial="hidden"
+                  animate="show"
+                  className="text-center py-4 space-y-4"
+                >
+                  <div className="flex justify-center">
+                    <div className="w-16 h-16 rounded-full bg-gym-success/15 flex items-center justify-center">
+                      <CheckCircle2 size={36} className="text-gym-success" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-gym-text-primary">
+                    E-mail enviado!
+                  </h3>
+                  <p className="text-sm text-gym-text-secondary">
+                    Verifique a caixa de entrada em{' '}
+                    <span className="text-gym-text-primary font-semibold">{email}</span>
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    onClick={() => navigate('/login')}
+                  >
+                    Voltar para login
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.form
+                  key="form"
+                  onSubmit={onSubmit}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="space-y-5"
+                >
+                  {error && (
+                    <div className="flex items-start gap-2.5 bg-gym-danger/10 border border-gym-danger/30 text-gym-danger p-3.5 rounded-xl text-sm">
+                      <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  <Input
+                    label="E-mail"
+                    icon={Mail}
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full bg-gym-dark border border-white/10 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-gym-orange transition-colors text-sm"
                     placeholder="seu@email.com"
+                    required
                   />
-                </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-gym-orange to-gym-accent hover:opacity-90 text-white font-bold py-4 rounded-2xl shadow-lg shadow-gym-orange/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="animate-spin" size={24} />
-                ) : (
-                  "Enviar Link"
-                )}
-              </button>
-            </form>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-8"
-            >
-              <CheckCircle size={64} className="text-green-400 mx-auto mb-4" />
-              <h2 className="text-xl font-bold mb-2">E-mail enviado!</h2>
-              <p className="text-gym-muted text-sm">
-                Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
-              </p>
-              <Link
-                to="/login"
-                className="inline-block mt-6 text-gym-orange font-semibold hover:underline"
-              >
-                Voltar para o login
-              </Link>
-            </motion.div>
-          )}
-        </div>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="xl"
+                    loading={loading}
+                    fullWidth
+                  >
+                    Enviar link
+                  </Button>
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </Card>
+        </motion.div>
       </motion.div>
     </div>
   );

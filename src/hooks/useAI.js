@@ -1,8 +1,24 @@
 import { useState, useCallback } from 'react';
-import { chatWithAI, generateWorkout, generateDiet, saveGeneratedPlan } from '../services/aiService';
+import {
+  chatWithAI,
+  generateWorkout,
+  generateDiet,
+  saveGeneratedPlan,
+} from '../services/aiService';
 
 /**
- * Hook para gerenciar interações com IA
+ * Hook para gerenciar interações com IA.
+ *
+ * Stable contract:
+ *   sendMessage(message, context) -> { response: string, suggestions: string[] }
+ *   generateNewWorkout(userProfile) -> workout object (sem redeclaração aqui)
+ *   generateNewDiet(userProfile) -> diet object
+ *   savePlan(userId, workout, diet) -> backend/DEV localStorage
+ *
+ * Note: ALL AI-driven actions (gerar treino, gerar dieta) live here as well,
+ * because useCoachChat (the shared chat hook) wraps them. Pages that need
+ * the generators directly can still call this hook, but for chat purposes
+ * prefer useCoachChat.
  */
 export const useAI = () => {
   const [loading, setLoading] = useState(false);
@@ -14,16 +30,24 @@ export const useAI = () => {
     setError(null);
 
     try {
-      const response = await chatWithAI(message, conversationHistory);
+      const result = await chatWithAI(message, conversationHistory);
+      // result shape: { response, suggestions }. Em DEV/backend OK, suggestions
+      // é uma lista de strings curtas (chips legados). Em DEV local são frases
+      // tipo "Criar treino", "Plano alimentar" — o useCoachChat converte.
 
       // Adicionar ao histórico
-      setConversationHistory(prev => [
-        ...prev,
-        { role: 'user', content: message, context },
-        { role: 'assistant', content: response }
-      ]);
+      setConversationHistory((prev) => {
+        const next = [
+          ...prev,
+          { role: 'user', content: message, context },
+          { role: 'assistant', content: result.response },
+        ];
+        // Trim history to avoid unbounded growth
+        if (next.length > 50) return next.slice(-50);
+        return next;
+      });
 
-      return response;
+      return result;
     } catch (err) {
       const errorMsg = err.message || 'Erro ao processar mensagem';
       setError(errorMsg);
@@ -96,7 +120,7 @@ export const useAI = () => {
     generateNewDiet,
     savePlan,
     clearHistory,
-    getLastResponse
+    getLastResponse,
   };
 };
 

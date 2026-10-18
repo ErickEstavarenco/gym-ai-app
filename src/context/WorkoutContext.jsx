@@ -24,6 +24,13 @@ export const WorkoutProvider = ({ children }) => {
     restrictions: [],
     preferences: {}
   });
+  const [activeSplitId, setActiveSplitId] = useState(() => {
+    try {
+      return localStorage.getItem('activeSplitId') || null;
+    } catch {
+      return null;
+    }
+  });
 
   // Treino
   const saveWorkout = useCallback((workout) => {
@@ -102,6 +109,17 @@ export const WorkoutProvider = ({ children }) => {
     setUserProfile(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // Split ativo (A/B/C). Persiste em localStorage pra sobreviver a reloads.
+  const setActiveSplit = useCallback((id) => {
+    setActiveSplitId(id);
+    try {
+      if (id) localStorage.setItem('activeSplitId', id);
+      else localStorage.removeItem('activeSplitId');
+    } catch {
+      // localStorage pode falhar em iframes restritos; não bloqueia.
+    }
+  }, []);
+
   const value = {
     // Treino
     currentWorkout,
@@ -121,7 +139,11 @@ export const WorkoutProvider = ({ children }) => {
 
     // Perfil
     userProfile,
-    updateUserProfile
+    updateUserProfile,
+
+    // Split ativo
+    activeSplitId,
+    setActiveSplit
   };
 
   return (
