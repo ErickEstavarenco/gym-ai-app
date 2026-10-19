@@ -457,4 +457,71 @@ const aiService = {
   getSuggestedExercises,
 };
 
+// ============================================
+// FUNÇÕES DE PERSISTÊNCIA NO BANCO
+// ============================================
+
+export const saveWorkoutForUser = async (userId, workout) => {
+  try {
+    const { Workout } = await import('../models/Workout.js');
+    const saved = await Workout.create({
+      user_id: userId,
+      title: workout.title || 'Treino gerado',
+      objective: workout.objective || 'hipertrofia',
+      level: workout.level || 'intermediario',
+      days_per_week: workout.daysPerWeek || 3,
+      data: JSON.stringify(workout),
+    });
+    return saved;
+  } catch (error) {
+    console.warn('⚠️ Não foi possível salvar treino no banco:', error.message);
+    return workout;
+  }
+};
+
+export const saveDietForUser = async (userId, diet) => {
+  try {
+    const { Diet } = await import('../models/Diet.js');
+    const saved = await Diet.create({
+      user_id: userId,
+      title: diet.title || 'Dieta gerada',
+      objective: diet.objective || 'manutencao',
+      daily_calories: diet.dailyCalories || 2500,
+      data: JSON.stringify(diet),
+    });
+    return saved;
+  } catch (error) {
+    console.warn('⚠️ Não foi possível salvar dieta no banco:', error.message);
+    return diet;
+  }
+};
+
+export const getLatestWorkoutForUser = async (userId) => {
+  try {
+    const { Workout } = await import('../models/Workout.js');
+    const workout = await Workout.findOne({
+      where: { user_id: userId },
+      order: [['created_at', 'DESC']],
+    });
+    return workout ? JSON.parse(workout.data) : null;
+  } catch (error) {
+    console.warn('⚠️ Não foi possível buscar treino:', error.message);
+    return null;
+  }
+};
+
+export const getLatestDietForUser = async (userId) => {
+  try {
+    const { Diet } = await import('../models/Diet.js');
+    const diet = await Diet.findOne({
+      where: { user_id: userId },
+      order: [['created_at', 'DESC']],
+    });
+    return diet ? JSON.parse(diet.data) : null;
+  } catch (error) {
+    console.warn('⚠️ Não foi possível buscar dieta:', error.message);
+    return null;
+  }
+};
+
 export default aiService;
