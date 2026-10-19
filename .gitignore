@@ -1,33 +1,21 @@
 # Dependências
 node_modules/
-**/node_modules/
+.venv/
 
-# Builds e testes
+# Build
 dist/
 build/
-coverage/
 
-# Variáveis de ambiente e segredos
+# Ambiente
 .env
-.env.*
-!.env.example
+.env.local
+.env.production
 
-# Python
-.venv/
-venv/
-__pycache__/
-*.py[cod]
-
-# Arquivos compactados
+# Arquivos temporários
 *.zip
+debug-storybook.log
+backend/{
 
-# Logs
-*.log
-
-# Editor
-.vscode/
-.idea/
-
-# Sistema operacional
-.DS_Store
-Thumbs.db
+# Cache
+.vite/
+.cache/
