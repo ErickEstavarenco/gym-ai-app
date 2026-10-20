@@ -7,7 +7,10 @@ import { Button, Card, Input, Logo } from '../components/ui';
 import { fadeUp, staggerParent } from '../lib/motion';
 
 const Register = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -15,17 +18,22 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const onChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (formData.password !== formData.confirmPassword) {
+
+    if (!name || !email || !password) {
+      setError('Preencha todos os campos');
+      return;
+    }
+
+    if (password !== confirmPassword) {
       setError('As senhas não coincidem');
       return;
     }
+
     setLoading(true);
-    const res = await register(formData.name, formData.email, formData.password);
+    const res = await register(name, email, password);
     if (res.success) {
       navigate('/');
     } else {
@@ -87,9 +95,8 @@ const Register = () => {
                 label="Nome"
                 icon={User}
                 type="text"
-                name="name"
-                value={formData.name}
-                onChange={onChange}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="Seu nome"
                 required
               />
@@ -97,9 +104,8 @@ const Register = () => {
                 label="E-mail"
                 icon={Mail}
                 type="email"
-                name="email"
-                value={formData.email}
-                onChange={onChange}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 required
               />
@@ -107,9 +113,8 @@ const Register = () => {
                 label="Senha"
                 icon={Lock}
                 type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={formData.password}
-                onChange={onChange}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
                 trailingIcon={showPassword ? EyeOff : Eye}
@@ -119,9 +124,8 @@ const Register = () => {
                 label="Confirmar senha"
                 icon={Lock}
                 type={showPassword ? 'text' : 'password'}
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={onChange}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
               />
