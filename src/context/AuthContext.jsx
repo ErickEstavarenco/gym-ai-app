@@ -76,13 +76,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (profileData) => {
+    try {
+      const res = await api.patch('/auth/profile', profileData);
+      setUser(res.data);
+      return { success: true, user: res.data };
+    } catch (err) {
+      return { success: false, message: err.response?.data?.msg || 'Erro ao atualizar perfil.' };
+    }
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, api }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateProfile, api }}>
       {children}
     </AuthContext.Provider>
   );

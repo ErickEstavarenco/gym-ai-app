@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -28,22 +28,54 @@ import {
 } from '../components/ui';
 import { fadeUp, staggerParent } from '../lib/motion';
 
+// Rótulos exibidos; o valor persistido no banco é o identificador (chave).
+const OBJECTIVE_OPTIONS = [
+  { value: 'hipertrofia', label: 'Massa' },
+  { value: 'emagrecimento', label: 'Emagrecimento' },
+  { value: 'definicao', label: 'Definição' },
+  { value: 'forca', label: 'Força' },
+  { value: 'resistencia', label: 'Resistência' },
+];
+const objectiveLabel = (value) =>
+  OBJECTIVE_OPTIONS.find((o) => o.value === value)?.label || '';
+
+const buildEditData = (u) => ({
+  name: u?.name || 'Usuário',
+  height: u?.height != null ? String(u.height) : '',
+  weight: u?.weight != null ? String(u.weight) : '',
+  age: u?.age != null ? String(u.age) : '',
+  objective: u?.objective || '',
+});
+
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({
-    name: user?.name || 'Usuário',
-    height: '1.75',
-    weight: '75',
-    age: '25',
-    objective: 'Massa',
-  });
+  const [editData, setEditData] = useState(() => buildEditData(user));
+
+  useEffect(() => {
+    if (user) setEditData(buildEditData(user));
+  }, [user]);
 
   const handleEditChange = (field, value) =>
     setEditData((prev) => ({ ...prev, [field]: value }));
 
-  const handleSaveEdit = () => setIsEditing(false);
+  const handleSaveEdit = async () => {
+    const result = await updateProfile({
+      name: editData.name,
+      height: editData.height,
+      weight: editData.weight,
+      age: editData.age,
+      objective: editData.objective,
+    });
+    if (result.success) setIsEditing(false);
+    else alert(result.message);
+  };
+
+  const handleCancelEdit = () => {
+    setEditData(buildEditData(user));
+    setIsEditing(false);
+  };
 
   const userInitial = (editData.name || 'U')[0].toUpperCase();
 
@@ -117,7 +149,7 @@ const Profile = () => {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    onClick={() => setIsEditing(false)}
+                    onClick={handleCancelEdit}
                     aria-label="Cancelar"
                   >
                     <X size={14} />
@@ -175,14 +207,16 @@ const Profile = () => {
               {isEditing ? (
                 <input
                   type="text"
+                  inputMode="decimal"
+                  placeholder="Ex.: 1,75"
                   value={editData.height}
                   onChange={(e) => handleEditChange('height', e.target.value)}
                   className="font-display impact-text text-2xl w-full px-2 py-1 rounded-lg bg-gym-bg border border-gym-accent text-white outline-none"
                 />
               ) : (
                 <p className="font-display impact-text text-2xl gradient-text">
-                  {editData.height}
-                  <span className="text-sm text-gym-text-muted ml-1">m</span>
+                  {editData.height || '—'}
+                  {editData.height && <span className="text-sm text-gym-text-muted ml-1">m</span>}
                 </p>
               )}
             </Card>
@@ -199,14 +233,16 @@ const Profile = () => {
               {isEditing ? (
                 <input
                   type="text"
+                  inputMode="decimal"
+                  placeholder="Ex.: 75"
                   value={editData.weight}
                   onChange={(e) => handleEditChange('weight', e.target.value)}
                   className="font-display impact-text text-2xl w-full px-2 py-1 rounded-lg bg-gym-bg border border-gym-accent text-white outline-none"
                 />
               ) : (
                 <p className="font-display impact-text text-2xl gradient-text">
-                  {editData.weight}
-                  <span className="text-sm text-gym-text-muted ml-1">kg</span>
+                  {editData.weight || '—'}
+                  {editData.weight && <span className="text-sm text-gym-text-muted ml-1">kg</span>}
                 </p>
               )}
             </Card>
@@ -223,12 +259,14 @@ const Profile = () => {
               {isEditing ? (
                 <input
                   type="text"
+                  inputMode="numeric"
+                  placeholder="Ex.: 25"
                   value={editData.age}
                   onChange={(e) => handleEditChange('age', e.target.value)}
                   className="font-display impact-text text-2xl w-full px-2 py-1 rounded-lg bg-gym-bg border border-gym-accent text-white outline-none"
                 />
               ) : (
-                <p className="font-display impact-text text-2xl gradient-text">{editData.age}</p>
+                <p className="font-display impact-text text-2xl gradient-text">{editData.age || '—'}</p>
               )}
             </Card>
 
@@ -247,14 +285,14 @@ const Profile = () => {
                   onChange={(e) => handleEditChange('objective', e.target.value)}
                   className="font-display text-xl impact-text w-full px-2 py-1 rounded-lg bg-gym-bg border border-gym-accent text-white outline-none"
                 >
-                  <option>Massa</option>
-                  <option>Definição</option>
-                  <option>Força</option>
-                  <option>Resistência</option>
+                  <option value="">Selecione</option>
+                  {OBJECTIVE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
               ) : (
                 <p className="font-display impact-text text-xl gradient-text">
-                  {editData.objective}
+                  {objectiveLabel(editData.objective) || '—'}
                 </p>
               )}
             </Card>

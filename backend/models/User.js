@@ -17,6 +17,10 @@ export const User = sequelize.define('users', {
     unique: true,
     validate: { isEmail: true },
   },
+  height: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+  weight: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+  age: { type: DataTypes.INTEGER, allowNull: true },
+  objective: { type: DataTypes.STRING(30), allowNull: true },
   password: {
     type: DataTypes.STRING(255),
     allowNull: false,

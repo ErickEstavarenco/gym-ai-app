@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 
 import { User } from '../models/User.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { parseProfileUpdate, serializeUser } from '../utils/profile.js';
 
 const router = express.Router();
 
@@ -84,11 +85,7 @@ router.get('/profile', authMiddleware, async (req, res) => {
       });
     }
 
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email
-    });
+    res.json(serializeUser(user));
 
   } catch (error) {
     console.error('Erro ao buscar perfil:', error);
@@ -96,6 +93,31 @@ router.get('/profile', authMiddleware, async (req, res) => {
     res.status(500).json({
       msg: 'Erro ao buscar perfil'
     });
+  }
+});
+
+/**
+ * PATCH /api/auth/profile
+ * Atualiza somente name, height, weight, age e objective do usuário autenticado.
+ * O id vem do JWT: cada usuário só altera o próprio perfil.
+ */
+router.patch('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { updates, error } = parseProfileUpdate(req.body);
+    if (error) {
+      return res.status(400).json({ msg: error });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'Usuário não encontrado' });
+    }
+
+    await user.update(updates);
+    res.json(serializeUser(user));
+  } catch (err) {
+    console.error('Erro ao atualizar perfil:', err.message);
+    res.status(500).json({ msg: 'Erro ao atualizar perfil' });
   }
 });
 
